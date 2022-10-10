@@ -3,6 +3,8 @@ version: '3.2'
 volumes:
   prometheus_data: {}
   grafana_data: {}
+  db_data: {}
+  my-db: {}
 
 networks:
   monitor:
@@ -50,3 +52,54 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - my-db:/var/lib/mysql
+
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    ports:
+      - 9104:9104
+    networks:
+      - monitor
+    environment:
+      - DATA_SOURCE_NAME=root:root@(db:3306)/wordpress
+    depends_on:
+      - db
+    privileged: true
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    networks:
+      - monitor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    depends_on:
+      - redis
+    privileged: true
+
+  redis:
+    image: redis
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379"
