@@ -39,6 +39,52 @@ services:
       - "--path.sysfs=/host/sys"
       - "--collector.textfile.directory=/etc/node-exporter/"
       - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
+      
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+    - 8080:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+    - redis
+    privileged: true
+    networks:
+      - monitor
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+    - 6379:6379
+    
+  db:
+    image: mysql:5.7
+    ports:
+      - 3306:3306
+    networks:
+      - monitor
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress
+
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    ports:
+      - 9104:9104
+    networks:
+      - monitor
+    environment:
+      - DATA_SOURCE_NAME=root:root@(db:3306)/wordpress
+    depends_on:
+      - db
+    privileged: true
 
   grafana:
     image: grafana/grafana
